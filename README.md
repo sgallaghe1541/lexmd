@@ -9,3 +9,9 @@
     - tokens for inline elements
     - white space?
 
+# Potential state functions
+    - lexBlockStart
+    - lexBlockEnd
+    - lexLine
+    - lexHeading
+

@@ -1,91 +1,131 @@
 package lexmd
 
 import (
-	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 type itemType int
 
 const (
 	itemError itemType = iota
-	itemNewLine
-	itemDoubleNewLine
-	itemSpace
-	itemTab
-	itemGrave
-	itemHash
-	itemDoubleHash
-	itemTripleHash
-	itemCarrot
-	itemDash
-	itemTilde
-	itemStar
-	itemDoubleStar
-	itemX
-	itemBang
-	itemLBrack
-	itemRBrack
-	itemLParen
-	itemRParen
-	itemLBrace
-	itemRBrace
-	itemGreater
-	itemColon
-	itemDoubleEqual
-	itemText
 	itemEOF
+	itemHeading
+	itemText
 )
 
-const puncToEscape = "!\"#$%&'()*+,-./:;<=>?@[]\\^_`{|}~"
-
 type item struct {
-	typ itemType
-	val string
+	typ  itemType
+	val  string
+	line int
 }
 
-func (i item) String() string {
-	switch i.typ {
-	case itemEOF:
-		return "EOF"
-	case itemError:
-		return i.val
-	}
-	if len(i.val) > 10 {
-		return fmt.Sprintf("%.10q...", i.val)
-	}
-	return fmt.Sprintf("%q", i.val)
-}
+const eof = -1
+
+const (
+    NewLine = "\n"
+)
 
 type stateFn func(*lexer) stateFn
 
 type lexer struct {
-	name  string
-	input string
-	start int
-	pos   int
-	width int
-	items chan item
+	name      string
+	input     string
+	start     int
+	pos       int
+	startline int
+	line      int
+	width     int
+	items     chan item
 }
 
-func (l *lexer) run() {
-	for state := lexText; state != nil; {
-		state = state(l)
+func (l *lexer) next() (r rune) {
+	if l.pos > len(l.input) {
+		l.width = 0
+		return eof
 	}
-	close(l.items)
+	r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
+	l.pos += l.width
+	return r
+}
+
+func (l *lexer) backup() {
+	l.pos -= l.width
+}
+
+func (l *lexer) accept(valid string) bool {
+	// consumes next rune if it is in valid set
+	if strings.ContainsRune(valid, l.next()) {
+		return true
+	}
+	l.backup()
+	return false
+}
+
+func (l *lexer) acceptRun(valid string) {
+	// consumes runes while valid.
+	for strings.ContainsRune(valid, l.next()) {
+	}
+	// when loop breaks lexer is sitting on invalid rune
+	l.backup()
+}
+
+func (l *lexer) absorbNewLines() {
+	// helper function to absorb contiguous verticle whitespce
+    for strings.ContainsRune("\n\r", l.next()) {
+    }
 }
 
 func (l *lexer) emit(t itemType) {
-	l.items <- item{t, l.input[l.start:l.pos]}
+	l.items <- item{t, l.input[l.start:l.pos], l.startline}
 	l.start = l.pos
+	l.startline = l.line
 }
 
-func lex(name, input string) (*lexer, chan item) {
-	l := &lexer{
-		name:  name,
-		input: input,
-		items: make(chan item),
+func lexBlock(l *lexer) stateFn {
+	switch r := l.input[l.pos]; r {
+	case '#':
+		return lexHeading
+	default:
+		return lexText
 	}
-	go l.run()
-	return l, l.items
+}
+
+func lexHeading(l *lexer) stateFn {
+	// lexer is sitting on a '#' at the start of a new block
+	// a space would be valid or up to 5 more #
+	// first validate heading
+	l.acceptRun("#")
+	if l.pos-l.start > 5 {
+		// not valid start for heading
+		return lexText
+	}
+	if !l.accept(" ") {
+		// not valid start for heading ex:"##adfa"
+		return lexText
+	}
+	// should be in a valid heading at this point
+	// absorb text until '\n'
+    for {
+        if strings.HasPrefix(l.input[l.pos:], NewLine) {
+            // lexer is sitting on '\n'
+            l.absorbNewLines()
+            // lexer should be sitting on the first character
+            // of a new block
+            if l.pos > l.start {
+                l.emit(itemHeading)
+                return lexBlock
+            }
+        if l.next() == eof { break }
+    }
+    // reached EOF
+    if l.pos > l.start {
+        l.emit(itemHeading)
+    }
+    l.emit(itemEOF)
+    return nil
+}
+
+func lexText(l *lexer) stateFn {
+	return nil
 }
