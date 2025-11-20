@@ -1,6 +1,7 @@
-package lexmd
+package main
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -20,10 +21,23 @@ type item struct {
 	line int
 }
 
+func (i item) String() string {
+	switch i.typ {
+	case itemEOF:
+		return "EOF"
+	case itemError:
+		return i.val
+	}
+	if len(i.val) > 10 {
+		return fmt.Sprintf("type: %v, val: %.20q", i.typ, i.val)
+	}
+	return fmt.Sprintf("type: %v, val: %q", i.typ, i.val)
+}
+
 const eof = -1
 
 const (
-    NewLine = "\n"
+	NewLine = "\n"
 )
 
 type stateFn func(*lexer) stateFn
@@ -37,6 +51,24 @@ type lexer struct {
 	line      int
 	width     int
 	items     chan item
+}
+
+func lex(name, input string) (*lexer, chan item) {
+	l := &lexer{
+		name:  name,
+		input: input,
+		items: make(chan item),
+	}
+	go l.run()
+
+	return l, l.items
+}
+
+func (l *lexer) run() {
+	for state := lexBlock; state != nil; {
+		state = state(l)
+	}
+	close(l.items)
 }
 
 func (l *lexer) next() (r rune) {
@@ -72,8 +104,8 @@ func (l *lexer) acceptRun(valid string) {
 
 func (l *lexer) absorbNewLines() {
 	// helper function to absorb contiguous verticle whitespce
-    for strings.ContainsRune("\n\r", l.next()) {
-    }
+	for strings.ContainsRune("\n\r", l.next()) {
+	}
 }
 
 func (l *lexer) emit(t itemType) {
@@ -106,24 +138,27 @@ func lexHeading(l *lexer) stateFn {
 	}
 	// should be in a valid heading at this point
 	// absorb text until '\n'
-    for {
-        if strings.HasPrefix(l.input[l.pos:], NewLine) {
-            // lexer is sitting on '\n'
-            l.absorbNewLines()
-            // lexer should be sitting on the first character
-            // of a new block
-            if l.pos > l.start {
-                l.emit(itemHeading)
-                return lexBlock
-            }
-        if l.next() == eof { break }
-    }
-    // reached EOF
-    if l.pos > l.start {
-        l.emit(itemHeading)
-    }
-    l.emit(itemEOF)
-    return nil
+	for {
+		if strings.HasPrefix(l.input[l.pos:], NewLine) {
+			// lexer is sitting on '\n'
+			l.absorbNewLines()
+			// lexer should be sitting on the first character
+			// of a new block
+			if l.pos > l.start {
+				l.emit(itemHeading)
+				return lexBlock
+			}
+		}
+		if l.next() == eof {
+			break
+		}
+	}
+	// reached EOF
+	if l.pos > l.start {
+		l.emit(itemHeading)
+	}
+	l.emit(itemEOF)
+	return nil
 }
 
 func lexText(l *lexer) stateFn {
