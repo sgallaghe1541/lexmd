@@ -1,6 +1,10 @@
 # LexMD
 *Yes it's more than a lexer, but now the name sounds like my wife's favorite website...*
 
+## About
+The goal of LexMD is to be a markdown parser(?). It should be able to take a markdown file
+and generate valid html.
+
 # Parser
     - create "doc" containing blocks. can be added as tokens are coming in from
     lexer.
