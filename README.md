@@ -1,3 +1,7 @@
+# LexMD
+### Yes it's more than a lexer, but
+### now the name sounds like my wife's favorite website...
+
 # Parser
     - create "doc" containing blocks. can be added as tokens are coming in from
     lexer.

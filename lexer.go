@@ -11,6 +11,7 @@ type itemType int
 const (
 	itemError itemType = iota
 	itemEOF
+	itemBreak
 	itemHeading
 	itemText
 )
@@ -86,6 +87,11 @@ func (l *lexer) backup() {
 	l.pos -= l.width
 }
 
+func (l *lexer) ignore() {
+	l.start = l.pos
+	l.width = 0
+}
+
 func (l *lexer) accept(valid string) bool {
 	// consumes next rune if it is in valid set
 	if strings.ContainsRune(valid, l.next()) {
@@ -128,6 +134,8 @@ func lexBlock(l *lexer) stateFn {
 	switch r := l.input[l.pos]; r {
 	case '#':
 		return lexHeading
+	case '\n':
+		return lexNewLines
 	default:
 		return lexText
 	}
@@ -151,9 +159,6 @@ func lexHeading(l *lexer) stateFn {
 	for {
 		if strings.HasPrefix(l.input[l.pos:], NewLine) {
 			// lexer is sitting on '\n'
-			l.acceptRun("\n\r")
-			// lexer should be sitting on the first character
-			// of a new block
 			if l.pos > l.start {
 				l.emit(itemHeading)
 				return lexBlock
@@ -171,6 +176,23 @@ func lexHeading(l *lexer) stateFn {
 	return nil
 }
 
+func lexNewLines(l *lexer) stateFn {
+	// should be sitting on a \n
+	// at the end of a line, but not
+	// necessarily at the end of a block.
+	// if there is only one \n ignore and
+	// return to lexBlock.
+	// if there is more than one \n
+	// absorb them all and emit a block break
+	l.acceptRun("\n\r")
+	if l.pos-l.start > 1 {
+		l.emit(itemBreak)
+		return lexBlock
+	}
+	l.ignore()
+	return lexBlock
+}
+
 func lexText(l *lexer) stateFn {
 	// should be sitting on text
 	// could be at the start of a block
@@ -178,21 +200,17 @@ func lexText(l *lexer) stateFn {
 	// should emit a text item at newline
 	// or at valid inline styling
 	for {
-		r := l.next()
-		// if strings.ContainsRune(InLineElements, r) {
-		// 	// validate inline style first?
-		// 	return lexInLineStyles
-		// }
-		if strings.ContainsRune(NewLine, r) {
-			l.acceptRun("\n\r")
-			l.emit(itemText)
-			return lexBlock
+		if strings.HasPrefix(l.input[l.pos:], NewLine) {
+			// lexer is sitting on '\n'
+			if l.pos > l.start {
+				l.emit(itemText)
+				return lexBlock
+			}
 		}
-		if r == eof {
+		if l.next() == eof {
 			break
 		}
 	}
-
 	// reached EOF
 	if l.pos > l.start {
 		l.emit(itemText)
