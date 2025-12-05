@@ -1,4 +1,4 @@
-package main
+package lexer
 
 import (
 	"fmt"
@@ -17,9 +17,8 @@ const (
 )
 
 type item struct {
-	typ  itemType
-	val  string
-	line int
+	typ itemType
+	val string
 }
 
 func (i item) String() string {
@@ -113,15 +112,15 @@ func (l *lexer) acceptRun(valid string) {
 }
 
 func (l *lexer) emit(t itemType) {
-	i := item{t, l.input[l.start:l.pos], l.startline}
+	i := item{t, l.input[l.start:l.pos]}
 	l.items <- i
 	l.start = l.pos
 	l.startline = l.line
 
 	// for debugging purposes
 	// maybe add a flag for turning on and off
-	msg := fmt.Sprintf("Sending %s to parser. \n Currently at %d.", i.String(), l.pos)
-	fmt.Println(msg)
+	// msg := fmt.Sprintf("Sending %s to parser. \n Currently at %d.", i.String(), l.pos)
+	// fmt.Println(msg)
 }
 
 func lexBlock(l *lexer) stateFn {
