@@ -5,20 +5,7 @@
 The goal of LexMD is to be a markdown parser(?). It should be able to take a markdown file
 and generate valid html.
 
-# Parser
-    - create "doc" containing blocks. can be added as tokens are coming in from
-    lexer.
-    - once block is completed can parse lines
-    
-# Lexer
-    - what to tokenize?
-    - need tokens for valid begin and end of blocks
-    - tokens for inline elements
-    - white space?
-
-# Potential state functions
-    - lexBlockStart
-    - lexBlockEnd
-    - lexLine
-    - lexHeading
-
+## TODO:
+    [x] lex # based headings
+    [x] lex EOF
+    [ ]
