@@ -14,4 +14,4 @@ and generate valid html.
 - [ ] lex inline italic
 - [ ] lex ordered lists
 - [ ] lex unordered lists
-
+- [ ] everyting involving the parser :)

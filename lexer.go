@@ -14,6 +14,9 @@ const (
 	itemBreak
 	itemHeading
 	itemText
+	itemItalic
+	itemBold
+	itemBoldItalic
 )
 
 type item struct {
@@ -38,7 +41,7 @@ const eof = -1
 
 const (
 	NewLine        = "\n"
-	InLineElements = "*_"
+	InLineElements = "*"
 )
 
 type stateFn func(*lexer) stateFn
@@ -123,11 +126,18 @@ func (l *lexer) emit(t itemType) {
 	// fmt.Println(msg)
 }
 
-func lexBlock(l *lexer) stateFn {
-	// check for EOF
+func (l *lexer) checkEOF() bool {
 	if l.pos >= len(l.input) {
 		l.width = 0
 		l.emit(itemEOF)
+		return true
+	}
+	return false
+}
+
+func lexBlock(l *lexer) stateFn {
+	// check for EOF
+	if l.checkEOF() {
 		return nil
 	}
 	switch r := l.input[l.pos]; r {
@@ -135,6 +145,51 @@ func lexBlock(l *lexer) stateFn {
 		return lexHeading
 	case '\n':
 		return lexNewLines
+	default:
+		return lexText
+	}
+}
+
+func lexInLineStyles(l *lexer) stateFn {
+	// check for EOF
+	if l.checkEOF() {
+		return nil
+	}
+
+	switch r := l.input[l.pos]; r {
+	case '*':
+		return lexStars
+	default:
+		return lexText
+	}
+}
+
+func lexStars(l *lexer) stateFn {
+	// lexer is sitting on an '*' somewhere in a run of text
+	// up to two more '*'s would be valid
+	// after that a space would be invalid
+	// if there is not a matching number of '*'s befor a new line
+	// then the styling is invalid and should be emitted as text
+
+	l.acceptRun("*")
+	if l.pos-l.start > 3 {
+		// more than 3 '*'s
+		return lexText
+	}
+	if l.accept(" ") {
+		// there cannot be a space after '*'s
+		return lexText
+	}
+	switch c := l.pos - l.start; c {
+	case 1:
+		l.emit(itemItalic)
+		return lexText
+	case 2:
+		l.emit(itemBold)
+		return lexText
+	case 3:
+		l.emit(itemBoldItalic)
+		return lexText
 	default:
 		return lexText
 	}
@@ -206,6 +261,13 @@ func lexText(l *lexer) stateFn {
 				return lexBlock
 			}
 		}
+		if strings.HasPrefix(l.input[l.pos:], "*") {
+			// lexer is sitting on '*'
+			if l.pos > l.start {
+				l.emit(itemText)
+				return lexInLineStyles
+			}
+		}
 		if l.next() == eof {
 			break
 		}
@@ -215,9 +277,5 @@ func lexText(l *lexer) stateFn {
 		l.emit(itemText)
 	}
 	l.emit(itemEOF)
-	return nil
-}
-
-func lexInLineStyles(l *lexer) stateFn {
 	return nil
 }

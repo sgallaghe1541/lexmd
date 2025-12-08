@@ -80,6 +80,78 @@ func TestLex(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Test Valid InLine",
+			input: `Testing **bold**.
+Testing *italic*.
+Testing ***bolditalic***.
+`,
+			wantItems: []item{
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemBold,
+					val: "**",
+				},
+				{
+					typ: itemText,
+					val: "bold",
+				},
+				{
+					typ: itemBold,
+					val: "**",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemItalic,
+					val: "*",
+				},
+				{
+					typ: itemText,
+					val: "italic",
+				},
+				{
+					typ: itemItalic,
+					val: "*",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemBoldItalic,
+					val: "***",
+				},
+				{
+					typ: itemText,
+					val: "bolditalic",
+				},
+				{
+					typ: itemBoldItalic,
+					val: "***",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemEOF,
+				},
+			},
+		},
 	}
 
 	// start tests
