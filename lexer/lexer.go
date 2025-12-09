@@ -14,9 +14,7 @@ const (
 	itemBreak
 	itemHeading
 	itemText
-	itemItalic
-	itemBold
-	itemBoldItalic
+	itemStar
 )
 
 type item struct {
@@ -40,8 +38,8 @@ func (i item) String() string {
 const eof = -1
 
 const (
-	NewLine        = "\n"
-	InLineElements = "*"
+	NewLine = '\n'
+	Star    = '*'
 )
 
 type stateFn func(*lexer) stateFn
@@ -57,7 +55,7 @@ type lexer struct {
 	items     chan item
 }
 
-func lex(name, input string) (*lexer, chan item) {
+func Lex(name, input string) (*lexer, chan item) {
 	l := &lexer{
 		name:  name,
 		input: input,
@@ -87,6 +85,11 @@ func (l *lexer) next() (r rune) {
 
 func (l *lexer) backup() {
 	l.pos -= l.width
+}
+
+func (l *lexer) peek() (r rune) {
+	r, _ = utf8.DecodeRuneInString(l.input[l.pos:])
+	return r
 }
 
 func (l *lexer) ignore() {
@@ -150,49 +153,26 @@ func lexBlock(l *lexer) stateFn {
 	}
 }
 
-func lexInLineStyles(l *lexer) stateFn {
-	// check for EOF
-	if l.checkEOF() {
-		return nil
-	}
-
-	switch r := l.input[l.pos]; r {
-	case '*':
-		return lexStars
-	default:
-		return lexText
-	}
-}
+// func lexInLineStyles(l *lexer) stateFn {
+// 	// check for EOF
+// 	if l.checkEOF() {
+// 		return nil
+// 	}
+//
+// 	switch r := l.input[l.pos]; r {
+// 	case '*':
+// 		return lexStars
+// 	default:
+// 		return lexText
+// 	}
+// }
 
 func lexStars(l *lexer) stateFn {
-	// lexer is sitting on an '*' somewhere in a run of text
-	// up to two more '*'s would be valid
-	// after that a space would be invalid
-	// if there is not a matching number of '*'s befor a new line
-	// then the styling is invalid and should be emitted as text
-
-	l.acceptRun("*")
-	if l.pos-l.start > 3 {
-		// more than 3 '*'s
-		return lexText
-	}
-	if l.accept(" ") {
-		// there cannot be a space after '*'s
-		return lexText
-	}
-	switch c := l.pos - l.start; c {
-	case 1:
-		l.emit(itemItalic)
-		return lexText
-	case 2:
-		l.emit(itemBold)
-		return lexText
-	case 3:
-		l.emit(itemBoldItalic)
-		return lexText
-	default:
-		return lexText
-	}
+	// lexer is sitting on an '*'
+	// advance lexer and emit itemStar
+	l.next()
+	l.emit(itemStar)
+	return lexText
 }
 
 func lexHeading(l *lexer) stateFn {
@@ -211,7 +191,7 @@ func lexHeading(l *lexer) stateFn {
 	// should be in a valid heading at this point
 	// absorb text until '\n'
 	for {
-		if strings.HasPrefix(l.input[l.pos:], NewLine) {
+		if l.peek() == NewLine {
 			// lexer is sitting on '\n'
 			if l.pos > l.start {
 				l.emit(itemHeading)
@@ -254,19 +234,19 @@ func lexText(l *lexer) stateFn {
 	// should emit a text item at newline
 	// or at valid inline styling
 	for {
-		if strings.HasPrefix(l.input[l.pos:], NewLine) {
+		if l.peek() == NewLine {
 			// lexer is sitting on '\n'
 			if l.pos > l.start {
 				l.emit(itemText)
-				return lexBlock
 			}
+			return lexBlock
 		}
-		if strings.HasPrefix(l.input[l.pos:], "*") {
+		if l.peek() == Star {
 			// lexer is sitting on '*'
 			if l.pos > l.start {
 				l.emit(itemText)
-				return lexInLineStyles
 			}
+			return lexStars
 		}
 		if l.next() == eof {
 			break

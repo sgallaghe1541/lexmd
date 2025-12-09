@@ -152,6 +152,79 @@ Testing ***bolditalic***.
 				},
 			},
 		},
+		{
+			name: "Test Invalid InLine",
+			input: `Testing ** bold**.
+Testing *italic if it spans a newline
+like this*.
+Testing ***bolditalic***.
+`,
+			wantItems: []item{
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemText,
+					val: "** bold",
+				},
+				{
+					typ: itemBold,
+					val: "**",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemItalic,
+					val: "*",
+				},
+				{
+					typ: itemText,
+					val: "italic if it spans a newline",
+				},
+				{
+					typ: itemText,
+					val: "like this",
+				},
+				{
+					typ: itemItalic,
+					val: "*",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemText,
+					val: "Testing ",
+				},
+				{
+					typ: itemBoldItalic,
+					val: "***",
+				},
+				{
+					typ: itemText,
+					val: "bolditalic",
+				},
+				{
+					typ: itemBoldItalic,
+					val: "***",
+				},
+				{
+					typ: itemText,
+					val: ".",
+				},
+				{
+					typ: itemEOF,
+				},
+			},
+		},
 	}
 
 	// start tests
