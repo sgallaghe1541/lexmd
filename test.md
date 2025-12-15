@@ -7,3 +7,5 @@ or if you wanted *italics*
 or ***bolditalics***
 
 You should get all of those successfully.
+
+This should ![hopefully](spit out items other than text).
