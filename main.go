@@ -7,13 +7,19 @@ import (
 
 func main() {
 	file, _ := os.ReadFile("test.md")
-	_, tokens := Lex("testtesttest", string(file))
-	_, blocks := parseBlocks(tokens)
-	for {
-		block, more := <-blocks
-		if !more {
-			break
-		}
-		fmt.Println(block)
-	}
+	_, items := Lex("testtesttest", string(file))
+	_, lines := buildLines(items)
+	doc, complete := buildDoc(lines)
+
+	<-complete
+
+	fmt.Print(doc.ToHTML())
+
+	// for {
+	// 	line, more := <-lines
+	// 	if !more {
+	// 		break
+	// 	}
+	// 	fmt.Println(line)
+	// }
 }

@@ -12,7 +12,9 @@ const (
 	itemError itemType = iota
 	itemEOF
 	itemBreak
+	itemNewLine
 	itemHeading
+	itemTab
 	itemText
 	itemStar
 	itemBang
@@ -23,10 +25,9 @@ const (
 )
 
 type item struct {
-	typ    itemType
-	val    string
-	line   int
-	nested int
+	typ  itemType
+	val  string
+	line int
 }
 
 func (i item) String() string {
@@ -39,7 +40,7 @@ func (i item) String() string {
 	// if len(i.val) > 10 {
 	// 	return fmt.Sprintf("type: %v, val: %.20q", i.typ, i.val)
 	// }
-	return fmt.Sprintf("type: %v, val: %q, line: %v, nested: %v", i.typ, i.val, i.line, i.nested)
+	return fmt.Sprintf("type: %v, val: %q, line: %v", i.typ, i.val, i.line)
 }
 
 const eof = -1
@@ -148,7 +149,10 @@ func (l *lexer) acceptRun(valid string) {
 }
 
 func (l *lexer) emit(t itemType) {
-	i := item{t, l.input[l.start:l.pos], l.line, l.nested}
+	i := item{t, l.input[l.start:l.pos], l.line}
+	if t == itemBreak {
+		i.line--
+	}
 	l.items <- i
 	l.start = l.pos
 	l.startline = l.line
@@ -182,20 +186,6 @@ func lexBlock(l *lexer) stateFn {
 		return lexText
 	}
 }
-
-// func lexInLineStyles(l *lexer) stateFn {
-// 	// check for EOF
-// 	if l.checkEOF() {
-// 		return nil
-// 	}
-//
-// 	switch r := l.input[l.pos]; r {
-// 	case '*':
-// 		return lexStars
-// 	default:
-// 		return lexText
-// 	}
-// }
 
 func lexStar(l *lexer) stateFn {
 	// lexer is sitting on an '*'
