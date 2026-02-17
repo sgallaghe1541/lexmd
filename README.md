@@ -10,8 +10,8 @@ and generate valid html.
 - [x] lex EOF
 - [x] lex verticle empty space '\n's
 - [ ] lex ===== or  ----- headings
-- [ ] lex inline bold
-- [ ] lex inline italic
+- [x] lex inline bold
+- [x] lex inline italic
 - [ ] lex ordered lists
-- [ ] lex unordered lists
+- [x] lex unordered lists
 - [ ] everyting involving the parser :)

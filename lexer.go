@@ -9,20 +9,30 @@ import (
 type itemType int
 
 const (
-	itemError itemType = iota
-	itemEOF
+	itemSpace itemType = iota
+	itemText
+	itemBang
+	itemLParen
+	itemRParen
+	itemRBracket
+	itemHash
+	itemEqual
+	itemHyph
+	itemStar
+	itemLBracket
+	itemTilde
+	itemCaret
 	itemBreak
 	itemNewLine
 	itemHeading
 	itemTab
-	itemText
-	itemStar
-	itemBang
-	itemLParen
-	itemRParen
-	itemLBracket
-	itemRBracket
+	itemEOF
+	itemError
 )
+
+// Heading: ==itemHash, ==itemHash || ==itemSpace,
+// Italic: ==itemStar, <=itemStar, ==itemStar
+// Bold: ==itemStar, ==itemStar, <=itemRBracket, ==itemStar, ==itemStar
 
 type item struct {
 	typ  itemType
@@ -46,18 +56,21 @@ func (i item) String() string {
 const eof = -1
 
 const (
-	NewLine     = '\n'
-	Hash        = '#'
-	Star        = '*'
-	Bang        = '!'
-	LParen      = '('
-	RParen      = ')'
-	LBracket    = '['
-	RBracket    = ']'
-	Hyph        = '-'
-	Equal       = '='
-	Tab         = '\t'
-	GreaterThan = '>'
+	SPACE       = ' '
+	NEWLINE     = '\n'
+	HASH        = '#'
+	STAR        = '*'
+	BANG        = '!'
+	LPAREN      = '('
+	RPAREN      = ')'
+	LBRACKET    = '['
+	RBRACKET    = ']'
+	TILDE       = '~'
+	CARET       = '^'
+	HYPH        = '-'
+	EQUAL       = '='
+	TAB         = '\t'
+	GREATERTHAN = '>'
 )
 
 type stateFn func(*lexer) stateFn
@@ -126,7 +139,7 @@ func (l *lexer) accept(valid string) bool {
 }
 
 func lexNewLines(l *lexer) stateFn {
-	for ; l.peek() == NewLine; l.next() {
+	for ; l.peek() == NEWLINE; l.next() {
 		l.line++
 	}
 	if l.pos-l.start > 1 {
@@ -178,9 +191,9 @@ func lexBlock(l *lexer) stateFn {
 		return nil
 	}
 	switch r := l.input[l.pos]; r {
-	case Hash:
-		return lexHeading
-	case NewLine:
+	// 	case HASH:
+	// 		return lexHeading
+	case NEWLINE:
 		return lexNewLines
 	default:
 		return lexText
@@ -200,6 +213,25 @@ func lexBang(l *lexer) stateFn {
 	// advance lexer and emit itemBang
 	l.next()
 	l.emit(itemBang)
+	return lexText
+}
+
+func lexTilde(l *lexer) stateFn {
+	// lexer is sitting on an '~'
+	l.next()
+	l.emit(itemTilde)
+	return lexText
+}
+
+func lexCaret(l *lexer) stateFn {
+	l.next()
+	l.emit(itemCaret)
+	return lexText
+}
+
+func lexHyph(l *lexer) stateFn {
+	l.next()
+	l.emit(itemHyph)
 	return lexText
 }
 
@@ -227,39 +259,22 @@ func lexRBracket(l *lexer) stateFn {
 	return lexText
 }
 
-func lexHeading(l *lexer) stateFn {
-	// lexer is sitting on a '#' at the start of a new block
-	// a space would be valid or up to 5 more #
-	// first validate heading
-	l.acceptRun("#")
-	if l.pos-l.start > 5 {
-		// not valid start for heading
-		return lexText
-	}
-	if !l.accept(" ") {
-		// not valid start for heading ex:"##adfa"
-		return lexText
-	}
-	// should be in a valid heading at this point
-	// absorb text until '\n'
-	for {
-		if l.peek() == NewLine {
-			// lexer is sitting on '\n'
-			if l.pos > l.start {
-				l.emit(itemHeading)
-				return lexBlock
-			}
-		}
-		if l.next() == eof {
-			break
-		}
-	}
-	// reached EOF
-	if l.pos > l.start {
-		l.emit(itemHeading)
-	}
-	l.emit(itemEOF)
-	return nil
+func lexSpace(l *lexer) stateFn {
+	l.next()
+	l.emit(itemSpace)
+	return lexText
+}
+
+func lexHash(l *lexer) stateFn {
+	l.next()
+	l.emit(itemHash)
+	return lexText
+}
+
+func lexEqual(l *lexer) stateFn {
+	l.next()
+	l.emit(itemEqual)
+	return lexText
 }
 
 func lexText(l *lexer) stateFn {
@@ -270,41 +285,71 @@ func lexText(l *lexer) stateFn {
 	// or at valid inline styling
 	for {
 		switch l.peek() {
-		case NewLine:
+		case NEWLINE:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexBlock
-		case Star:
+		case SPACE:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexSpace
+		case STAR:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexStar
-		case Bang:
+		case BANG:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexBang
-		case LParen:
+		case LPAREN:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexLParen
-		case RParen:
+		case RPAREN:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexRParen
-		case LBracket:
+		case LBRACKET:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexLBracket
-		case RBracket:
+		case RBRACKET:
 			if l.pos > l.start {
 				l.emit(itemText)
 			}
 			return lexRBracket
+		case HASH:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexHash
+		case TILDE:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexTilde
+		case CARET:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexCaret
+		case HYPH:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexHyph
+		case EQUAL:
+			if l.pos > l.start {
+				l.emit(itemText)
+			}
+			return lexEqual
 		}
 
 		if l.next() == eof {

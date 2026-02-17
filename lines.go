@@ -9,51 +9,75 @@ type line struct {
 	items []item
 }
 
+type block struct {
+	num   int
+	lines []line
+}
+
 func (l line) String() string {
 	return fmt.Sprintf("Line Number: %v, Items: %v", l.num, l.items)
 }
 
-type lineParser struct {
-	lineNumber  int
-	currentLine []item
-	items       chan item
-	lines       chan line
+type blockBuilder struct {
+	lineNumber   int
+	blockNumber  int
+	currentBlock block
+	currentLine  []item
+	items        chan item
+	blocks       chan block
 }
 
-func buildLines(items chan item) (*lineParser, chan line) {
-	p := &lineParser{
-		lineNumber:  0,
-		currentLine: make([]item, 0),
-		items:       items,
-		lines:       make(chan line),
+func buildBlocks(items chan item) (*blockBuilder, chan block) {
+	p := &blockBuilder{
+		lineNumber:   0,
+		blockNumber:  0,
+		currentBlock: block{num: 0, lines: make([]line, 0)},
+		currentLine:  make([]item, 0),
+		items:        items,
+		blocks:       make(chan block),
 	}
 
 	go p.run()
 
-	return p, p.lines
+	return p, p.blocks
 }
 
-func (p *lineParser) run() {
+func (p *blockBuilder) run() {
 	for {
 		i, more := <-p.items
 		if !more {
 			break
 		}
-		if i.line != p.lineNumber {
-			p.sendLine()
-			p.lineNumber = i.line
+		switch i.typ {
+		case itemBreak, itemEOF:
+			p.addLine()
+			p.sendBlock()
+		default:
+			if i.line != p.lineNumber {
+				p.addLine()
+				p.lineNumber = i.line
+			}
+			p.currentLine = append(p.currentLine, i)
 		}
-		p.currentLine = append(p.currentLine, i)
 	}
-	p.sendLine()
-	close(p.lines)
+	p.sendBlock()
+	close(p.blocks)
 }
 
-func (p *lineParser) sendLine() {
+func (p *blockBuilder) addLine() {
+	if len(p.currentLine) == 0 {
+		return
+	}
 	l := line{
 		num:   p.lineNumber,
 		items: p.currentLine,
 	}
-	p.lines <- l
+	p.currentBlock.lines = append(p.currentBlock.lines, l)
 	p.currentLine = make([]item, 0)
+}
+
+func (p *blockBuilder) sendBlock() {
+	p.blocks <- p.currentBlock
+	p.blockNumber++
+	p.currentBlock = block{num: p.blockNumber, lines: make([]line, 0)}
 }
