@@ -1,4 +1,4 @@
-package main
+package lexmd
 
 import (
 	"fmt"
@@ -25,6 +25,7 @@ const (
 	nodeSuperScript
 	nodeLink
 	nodeImage
+	nodeLineBreak
 	nodeBreak
 )
 
@@ -55,7 +56,12 @@ func buildHashHeading(items []item) (*node, []item) {
 	}
 
 	n.myTokens = items[:hashCount+1]
-	n.tokens = items[hashCount+1:]
+
+	if items[len(items)-1].typ == itemNewLine {
+		n.tokens = items[hashCount+1 : len(items)-1]
+	} else {
+		n.tokens = items[hashCount+1:]
+	}
 
 	n.openTag = fmt.Sprintf("<h%d>", hashCount)
 	n.closeTag = fmt.Sprintf("</h%d>", hashCount)
@@ -304,7 +310,11 @@ func buildUListItem(items []item) (*node, []item) {
 
 	myTokens := []item{items[openStart], items[openStop]}
 	n.myTokens = myTokens
-	n.tokens = items[openStop+1:]
+	if items[len(items)-1].typ == itemNewLine {
+		n.tokens = items[openStop+1 : len(items)-1]
+	} else {
+		n.tokens = items[openStop+1:]
+	}
 
 	return n, make([]item, 0)
 }
@@ -567,6 +577,29 @@ func buildImage(items []item) (*node, []item) {
 	return nil, items
 }
 
+func buildLineBreak(items []item) (*node, []item) {
+	if len(items) == 0 {
+		return nil, items
+	}
+
+	if items[0].typ != itemNewLine {
+		return nil, items
+	}
+
+	n := &node{
+		typ:      nodeLineBreak,
+		openTag:  "<br>",
+		closeTag: "",
+		flat:     true,
+		myTokens: []item{items[0]},
+	}
+
+	if len(items) > 1 {
+		return n, items[1:]
+	}
+	return n, make([]item, 0)
+}
+
 func buildText(items []item) (*node, []item) {
 	if len(items) == 0 {
 		return nil, items
@@ -610,6 +643,7 @@ var validBuilders = map[nodeType][]nodeBuilder{
 		buildSuperScript,
 		buildLink,
 		buildText,
+		buildLineBreak,
 	},
 	nodeUListItem: []nodeBuilder{
 		buildBoldItalic,
@@ -663,7 +697,10 @@ var validBuilders = map[nodeType][]nodeBuilder{
 }
 
 func (n *node) findChildren() {
-	builders := validBuilders[n.typ]
+	builders, ok := validBuilders[n.typ]
+	if !ok {
+		return
+	}
 	if len(builders) == 0 {
 		return
 	}
@@ -674,7 +711,6 @@ func (n *node) findChildren() {
 		for _, b := range builders {
 			node, items := b(n.tokens)
 			if node != nil {
-				// node.findChildren()
 				n.addNode(node)
 				n.tokens = items
 			}
@@ -689,7 +725,7 @@ type nodeParser struct {
 	nodes       chan *node
 }
 
-func ParseNodes(blocks chan block) (*nodeParser, chan *node) {
+func parseNodes(blocks chan block) (*nodeParser, chan *node) {
 	p := &nodeParser{
 		lastNodeTyp: nodeDoc,
 		blocks:      blocks,
@@ -885,7 +921,7 @@ func mergeAltHeading(p *node, h *node) {
 }
 
 func (n *node) addNode(node *node) {
-	node.parent = n
+	//	node.parent = n
 	node.findChildren()
 	n.nodes = append(n.nodes, node)
 }

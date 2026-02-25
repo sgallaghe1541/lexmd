@@ -1,4 +1,4 @@
-package main
+package lexmd
 
 import (
 	"fmt"
@@ -146,7 +146,7 @@ func lexNewLines(l *lexer) stateFn {
 		l.emit(itemBreak)
 		return lexBlock
 	}
-	l.ignore()
+	l.emit(itemNewLine)
 	return lexBlock
 }
 
@@ -163,7 +163,7 @@ func (l *lexer) acceptRun(valid string) {
 
 func (l *lexer) emit(t itemType) {
 	i := item{t, l.input[l.start:l.pos], l.line}
-	if t == itemBreak {
+	if t == itemBreak || t == itemNewLine {
 		i.line--
 	}
 	l.items <- i
